@@ -3,10 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ทะเบียนบุคคล — Archive</title>
+<title>ทะเบียนบุคคล — Archive (Cloud Shared)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- เรียกใช้งาน Firebase SDK (Realtime Database & App) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  // โค้ด Config ที่มึงให้มา (ต่อเข้า Firebase Realtime Database ของมึงโดยตรง)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDlniUr6WQKnI-N79beZJsDZa3YqaYCZyg",
+    databaseURL: "https://script-ab2d9-default-rtdb.firebaseio.com",
+    projectId: "script-ab2d9",
+    storageBucket: "script-ab2d9.firebasestorage.app"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  window.db = db;
+  window.fbModules = { ref, onValue, push, update, remove };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
 <style>
   :root{
     --paper:#EDE6D6;
@@ -234,7 +255,7 @@
     flex-wrap:wrap; gap:12px;
   }
 
-    .toast{
+  .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--navy); color:var(--paper);
     font-family:'IBM Plex Mono', monospace; font-size:13px;
@@ -245,23 +266,15 @@
     z-index:50;
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
-
-  @media (max-width:520px){
-    .detail-card{ padding:24px 16px; }
-    .detail-card::before{ display:none; }
-  }
 </style>
 </head>
 <body>
-
 <div class="app">
-
-  <!-- ===== LIST VIEW ===== -->
   <div id="listView">
     <header class="top">
       <div>
-        <p class="brand-eyebrow">Registry · No. 001 —</p>
-        <h1 class="brand">ทะเบียนบุคคล</h1>
+        <p class="brand-eyebrow">Registry · Cloud Shared —</p>
+        <h1 class="brand">ทะเบียนบุคคล (ออนไลน์)</h1>
       </div>
       <button class="btn btn-primary" id="addBtn" style="display:none;">+ เพิ่มชื่อใหม่</button>
     </header>
@@ -271,17 +284,16 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="searchInput" placeholder="ค้นหาชื่อ...">
       </div>
-      <span class="sort-tag" id="countTag">ทั้งหมด 0 รายชื่อ</span>
+      <span class="sort-tag" id="countTag">กำลังซิงค์ข้อมูล...</span>
     </div>
 
     <div class="grid" id="grid"></div>
     <div class="empty-state" id="emptyState" style="display:none;">
-      <span class="stamp-icon">— ยังไม่มีรายชื่อในทะเบียน —</span>
+      <span class="stamp-icon">— ยังไม่มีรายชื่อในฐานข้อมูลกลาง —</span>
       แตะหน้าจอต่อเนื่อง 10 ครั้ง เพื่อเพิ่มรายชื่อใหม่
     </div>
   </div>
 
-  <!-- ===== DETAIL VIEW ===== -->
   <div id="detailView" class="hidden">
     <div class="detail-card">
       <div class="back-row">
@@ -313,40 +325,26 @@
       </div>
     </div>
   </div>
-
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-(function(){
-  const STORAGE_KEY = 'registry_people_v1';
+window.addEventListener('firebase-ready', () => {
+  const { ref, onValue, push, update, remove } = window.fbModules;
+  const db = window.db;
+
   let people = [];
   let editingId = null;
 
-  // ตัวแปรนับคลิกหน้าหลัก (สำหรับเพิ่มข้อมูลใหม่)
   let listClickCount = 0;
   let listClickTimer = null;
-
-  // ตัวแปรนับคลิกหน้าประวัติ (สำหรับแก้ไขข้อมูล)
   let detailClickCount = 0;
   let detailClickTimer = null;
 
-  function load(){
-    try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      people = raw ? JSON.parse(raw) : [];
-    }catch(e){ people = []; }
-  }
-  function save(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(people));
-  }
-  function uid(){
-    return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
-  }
   function pad(n){ return String(n).padStart(3,'0'); }
   function initials(name){
-    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
     if(parts.length === 0) return '?';
     if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -358,14 +356,13 @@
       ' ' + d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
   }
 
-  function renderStars(container, rating, size, onClick){
+  function renderStars(container, rating, onClick){
     container.innerHTML = '';
     for(let i=1; i<=5; i++){
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'star-btn' + (i <= rating ? ' filled' : '');
       b.textContent = '★';
-      b.setAttribute('aria-label', i + ' ดาว');
       b.addEventListener('click', function(e){
         e.stopPropagation();
         if(onClick) onClick(i === rating ? 0 : i);
@@ -382,7 +379,19 @@
     t._timer = setTimeout(()=> t.classList.remove('show'), 2000);
   }
 
-  // ===== LIST VIEW =====
+  // ดึงข้อมูลแบบ Realtime จาก Firebase Realtime Database กลาง
+  const peopleRef = ref(db, 'people');
+  onValue(peopleRef, (snapshot) => {
+    const data = snapshot.val();
+    people = [];
+    if(data){
+      Object.keys(data).forEach(key => {
+        people.push({ id: key, ...data[key] });
+      });
+    }
+    renderList();
+  });
+
   function renderList(){
     const grid = document.getElementById('grid');
     const empty = document.getElementById('emptyState');
@@ -390,10 +399,10 @@
 
     const filtered = people
       .map((p, idx) => ({...p, _idx: idx}))
-      .filter(p => p.name.toLowerCase().includes(q))
-      .sort((a,b) => b.createdAt - a.createdAt);
+      .filter(p => p.name && p.name.toLowerCase().includes(q))
+      .sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-    document.getElementById('countTag').textContent = 'ทั้งหมด ' + people.length + ' รายชื่อ' + (q ? (' · พบ ' + filtered.length + ' รายการ') : '');
+    document.getElementById('countTag').textContent = 'ทั้งหมด ' + people.length + ' รายชื่อ';
 
     grid.innerHTML = '';
     if(people.length === 0){
@@ -407,7 +416,6 @@
     filtered.forEach(p => {
       const card = document.createElement('div');
       card.className = 'card';
-      card.tabIndex = 0;
 
       const tab = document.createElement('span');
       tab.className = 'tab-no';
@@ -431,29 +439,26 @@
 
       const starsWrap = document.createElement('div');
       starsWrap.className = 'stars';
-      renderStars(starsWrap, p.rating || 0, 19, null);
+      renderStars(starsWrap, p.rating || 0, null);
       card.appendChild(starsWrap);
 
       card.addEventListener('click', () => openDetail(p.id));
-      card.addEventListener('keypress', (e) => { if(e.key === 'Enter') openDetail(p.id); });
-
       grid.appendChild(card);
     });
-    }
+  }
 
-    function escapeHtml(str){
+  function escapeHtml(str){
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
   }
 
-  // ===== DETAIL VIEW =====
   function openDetail(id){
     editingId = id;
     const p = people.find(x => x.id === id);
     const idx = people.findIndex(x => x.id === id);
 
-    document.getElementById('detailIdTag').textContent = 'No. ' + pad(idx + 1);
+    document.getElementById('detailIdTag').textContent = 'No. ' + pad(idx >= 0 ? idx + 1 : people.length + 1);
     document.getElementById('nameInput').value = p ? p.name : '';
     document.getElementById('nameInput').setAttribute('readonly', 'readonly');
     document.getElementById('historyInput').value = p ? (p.history || '') : '';
@@ -470,8 +475,7 @@
     }
     starsEl.dataset.rating = currentRating;
     updateRatingText();
-
-    renderStars(starsEl, currentRating, 28, null);
+    renderStars(starsEl, currentRating, null);
 
     switchView('detail');
   }
@@ -494,55 +498,50 @@
     const now = Date.now();
 
     if(editingId){
-      const p = people.find(x => x.id === editingId);
-      if(p){
-        p.name = name;
-        p.history = history;
-        p.rating = rating;
-        p.updatedAt = now;
-      }
-    }else{
-      people.push({
-        id: uid(),
+      // แก้ไขข้อมูลเดิมบน Cloud กลาง
+      update(ref(db, 'people/' + editingId), {
+        name: name,
+        history: history,
+        rating: rating,
+        updatedAt: now
+      }).then(() => {
+        showToast('อัปเดตข้อมูลขึ้น Cloud เรียบร้อย');
+        switchView('list');
+      }).catch(() => showToast('เกิดข้อผิดพลาดในการบันทึก'));
+    } else {
+      // เพิ่มข้อมูลใหม่ขึ้น Cloud กลาง
+      push(ref(db, 'people'), {
         name: name,
         history: history,
         rating: rating,
         createdAt: now,
         updatedAt: now
-      });
+      }).then(() => {
+        showToast('เพิ่มชื่อใหม่ขึ้น Cloud เรียบร้อย');
+        switchView('list');
+      }).catch(() => showToast('เกิดข้อผิดพลาดในการบันทึก'));
     }
-    save();
-    showToast('บันทึกข้อมูลเรียบร้อยแล้ว');
-    renderList();
-    switchView('list');
   }
-
-  function deleteCurrent(){
+function deleteCurrent(){
     if(!editingId) return;
-    if(!confirm('ลบรายชื่อนี้ออกจากทะเบียนใช่หรือไม่?')) return;
-    people = people.filter(x => x.id !== editingId);
-    save();
-    renderList();
-    switchView('list');
-    showToast('ลบรายการแล้ว');
+    if(!confirm('ลบรายชื่อนี้ออกจากระบบกลางใช่หรือไม่?')) return;
+    remove(ref(db, 'people/' + editingId)).then(() => {
+      switchView('list');
+      showToast('ลบรายการออกจาก Cloud แล้ว');
+    }).catch(() => showToast('ลบไม่สำเร็จ'));
   }
 
-  // ===== ระบบคลิกซ่อนความลับ 10 ครั้งต่อเนื่อง =====
-
-  // 1. หน้าหลัก (กดพื้นที่ไหนก็ได้ในหน้าหลัก 10 ครั้งติดกัน -> เปิดฟอร์ม "เพิ่มข้อมูลใหม่")
+  // ระบบปลดล็อก 10 ครั้งหน้าหลัก (กดพื้นที่ว่างเพื่อเปิดฟอร์มเพิ่มข้อมูลใหม่)
   document.getElementById('listView').addEventListener('click', function(e){
-    if(e.target.closest('.card') || e.target.closest('.search-wrap')) return;
+    if(e.target.closest('.card') || e.target.closest('.search-wrap') || e.target.closest('header')) return;
 
     listClickCount++;
     clearTimeout(listClickTimer);
-    
-    listClickTimer = setTimeout(() => {
-      listClickCount = 0;
-    }, 1200); // ให้เวลาคลิกต่อเนื่องภายใน 1.2 วินาที
+    listClickTimer = setTimeout(() => { listClickCount = 0; }, 1200);
 
     if(listClickCount >= 10){
       listClickCount = 0;
-      openDetail(null); // เปิดหน้าฟอร์มแบบสร้างใหม่ทันที
+      openDetail(null);
       document.getElementById('nameInput').removeAttribute('readonly');
       document.getElementById('historyInput').removeAttribute('readonly');
       document.getElementById('saveBtn').style.display = 'block';
@@ -550,42 +549,33 @@
     }
   });
 
-  // 2. หน้าประวัติบุคคล (กดพื้นที่ไหนก็ได้ในหน้าประวัติ 10 ครั้งติดกัน -> เปิดโหมด "แก้ไขข้อมูลปัจจุบัน")
+  // ระบบปลดล็อก 10 ครั้งหน้าประวัติ (กดพื้นที่ว่างเพื่อเปิดโหมดแก้ไข/ลบ)
   document.getElementById('detailView').addEventListener('click', function(e){
     if(e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea') || e.target.closest('label')) return;
 
     detailClickCount++;
     clearTimeout(detailClickTimer);
-
-    detailClickTimer = setTimeout(() => {
-      detailClickCount = 0;
-    }, 1200);
+    detailClickTimer = setTimeout(() => { detailClickCount = 0; }, 1200);
 
     if(detailClickCount >= 10){
       detailClickCount = 0;
-      
-      // ปลดล็อกฟิลด์และปุ่มให้สามารถแก้ไขหรือลบได้ทันที
       document.getElementById('nameInput').removeAttribute('readonly');
       document.getElementById('historyInput').removeAttribute('readonly');
       document.getElementById('deleteBtn').style.display = 'block';
       document.getElementById('saveBtn').style.display = 'block';
 
-      // เปิดใช้งานดาวให้กดเปลี่ยนคะแนนได้
-      const p = people.find(x => x.id === editingId);
-      let currentRating = p ? (p.rating || 0) : 0;
       const starsEl = document.getElementById('detailStars');
+      let currentRating = parseInt(starsEl.dataset.rating || '0', 10);
       const ratingText = document.getElementById('detailRatingText');
-      function updateRatingText(){
-        ratingText.textContent = currentRating > 0 ? (currentRating + ' / 5 ดาว') : 'ยังไม่ได้ให้คะแนน';
-      }
-      renderStars(starsEl, currentRating, 28, function(r){
+      
+      renderStars(starsEl, currentRating, function(r){
         currentRating = r;
         starsEl.dataset.rating = r;
-        renderStars(starsEl, currentRating, 28, arguments.callee);
-        updateRatingText();
+        renderStars(starsEl, currentRating, arguments.callee);
+        ratingText.textContent = currentRating > 0 ? (currentRating + ' / 5 ดาว') : 'ยังไม่ได้ให้คะแนน';
       });
 
-      showToast('🔓 ปลดล็อกโหมดแก้ไขข้อมูล');
+      showToast('🔓 ปลดล็อกโหมดแก้ไขข้อมูลกลาง');
     }
   });
 
@@ -600,12 +590,8 @@
   document.getElementById('saveBtn').addEventListener('click', saveDetail);
   document.getElementById('deleteBtn').addEventListener('click', deleteCurrent);
   document.getElementById('searchInput').addEventListener('input', renderList);
-
-  // ===== Init =====
-  load();
-  renderList();
-})();
+});
 </script>
 </body>
 </html>
-    
+
