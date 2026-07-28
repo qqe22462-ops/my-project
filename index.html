@@ -1,70 +1,611 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>บันทึกแต้มจูบ</title>
-    <style>
-        body { font-family: sans-serif; background: #fce4ec; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        input, button { width: 100%; padding: 10px; margin: 5px 0; border-radius: 5px; border: 1px solid #ddd; box-sizing: border-box; }
-        .btn-add { background: #d81b60; color: white; font-weight: bold; cursor: pointer; }
-        .log-item { background: #fff5f8; padding: 10px; margin: 10px 0; border-left: 5px solid #d81b60; border-radius: 5px; }
-        .log-img { max-width: 100%; border-radius: 5px; margin-top: 5px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ทะเบียนบุคคล — Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDE6D6;
+    --paper-dark:#E2D9C4;
+    --ink:#221F1B;
+    --ink-soft:#4A443C;
+    --navy:#1F2A3C;
+    --brass:#A9823F;
+    --brass-light:#C9A567;
+    --stamp:#A23B2E;
+    --sage:#5F7360;
+    --line: rgba(34,31,27,0.18);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse at top left, rgba(169,130,63,0.06), transparent 55%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(34,31,27,0.025) 0px, rgba(34,31,27,0.025) 1px, transparent 1px, transparent 3px);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .app{ position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:28px 20px 80px; }
+
+  /* ===== Header ===== */
+  header.top{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:16px; margin-bottom:8px;
+    flex-wrap:wrap; gap:14px;
+  }
+  .brand-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--brass); margin:0 0 6px;
+  }
+  h1.brand{
+    font-family:'Fraunces', serif;
+    font-weight:600; font-style:italic;
+    font-size:clamp(28px,4vw,42px);
+    margin:0; color:var(--navy); letter-spacing:-0.01em;
+  }
+  .count-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px; color:var(--ink-soft);
+  }
+  .btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px; letter-spacing:.03em;
+    border:1.5px solid var(--ink);
+    background:transparent;
+    color:var(--ink);
+    padding:10px 18px;
+    cursor:pointer;
+    border-radius:2px;
+    transition:background .15s ease, color .15s ease, transform .1s ease;
+    white-space:nowrap;
+  }
+  .btn:hover{ background:var(--ink); color:var(--paper); }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{
+    background:var(--navy); color:var(--paper); border-color:var(--navy);
+  }
+  .btn-primary:hover{ background:#131C29; }
+  .btn-stamp{
+    border-color:var(--stamp); color:var(--stamp);
+  }
+  .btn-stamp:hover{ background:var(--stamp); color:var(--paper); }
+
+  /* ===== Toolbar ===== */
+  .toolbar{
+    display:flex; gap:12px; align-items:center; justify-content:space-between;
+    margin:20px 0 22px; flex-wrap:wrap;
+  }
+  .search-wrap{ position:relative; flex:1; min-width:220px; max-width:380px; }
+  .search-wrap input{
+    width:100%;
+    font-family:'Inter', sans-serif; font-size:14px;
+    padding:10px 12px 10px 32px;
+    border:1.5px solid var(--line);
+    background:rgba(255,255,255,0.35);
+    border-radius:2px; color:var(--ink);
+  }
+  .search-wrap input:focus{ outline:none; border-color:var(--brass); }
+  .search-wrap svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); opacity:.5; }
+
+  .sort-tag{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); }
+
+  /* ===== List / Cards ===== */
+  #listView.hidden, #detailView.hidden{ display:none; }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(260px,1fr));
+    gap:16px;
+  }
+  .card{
+    position:relative;
+    background:linear-gradient(180deg, #F4EFE2, #EAE2CD);
+    border:1px solid var(--line);
+    border-top:3px solid var(--brass);
+    border-radius:2px 2px 4px 4px;
+    padding:18px 16px 14px;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    box-shadow:0 1px 0 rgba(34,31,27,0.05);
+  }
+  .card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 10px 22px rgba(34,31,27,0.12);
+    border-top-color:var(--stamp);
+  }
+  .card .tab-no{
+    position:absolute; top:-11px; left:14px;
+    background:var(--navy); color:var(--paper);
+    font-family:'IBM Plex Mono', monospace; font-size:10px;
+    padding:2px 8px; letter-spacing:.05em;
+    border-radius:2px;
+  }
+  .card-head{ display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+  .avatar{
+    width:44px; height:44px; border-radius:50%;
+    background:var(--navy); color:var(--paper);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces', serif; font-weight:600; font-size:16px;
+    flex-shrink:0;
+    border:2px solid var(--brass);
+  }
+  .card-name{
+    font-family:'Fraunces', serif; font-weight:600; font-size:18px;
+    color:var(--ink); line-height:1.2;
+  }
+  .card-meta{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    color:var(--ink-soft); margin-top:3px;
+  }
+  .card-bio-preview{
+    font-size:13px; color:var(--ink-soft); line-height:1.5;
+    min-height:20px; max-height:40px; overflow:hidden;
+    margin-bottom:12px;
+    border-left:2px solid var(--line); padding-left:10px;
+  }
+  .stars{ display:flex; gap:4px; }
+  .star-btn{
+    background:none; border:none; cursor:pointer; padding:2px;
+    font-size:19px; line-height:1; color:var(--line);
+    transition:transform .1s ease, color .1s ease;
+  }
+  .star-btn:hover{ transform:scale(1.15); }
+  .star-btn.filled{ color:var(--stamp); }
+
+  .empty-state{
+    text-align:center; padding:70px 20px; color:var(--ink-soft);
+    border:1.5px dashed var(--line); border-radius:4px;
+  }
+  .empty-state .stamp-icon{
+    font-family:'Fraunces', serif; font-style:italic; font-size:22px;
+    color:var(--navy); margin-bottom:8px; display:block;
+  }
+
+  /* ===== Detail View ===== */
+  .detail-card{
+    background:#F6F1E5;
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:32px clamp(18px,4vw,44px);
+    position:relative;
+    box-shadow:0 2px 0 rgba(34,31,27,0.04);
+  }
+  .detail-card::before{
+    content:"";
+    position:absolute; left:0; top:24px; bottom:24px; width:3px;
+    background:repeating-linear-gradient(180deg, var(--brass) 0 6px, transparent 6px 12px);
+  }
+  .back-row{ margin-bottom:22px; }
+  .detail-topline{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:16px; margin-bottom:22px; flex-wrap:wrap;
+  }
+  .detail-id{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--brass);
+    letter-spacing:.1em; margin-bottom:6px;
+  }
+  label{
+    display:block; font-family:'IBM Plex Mono', monospace; font-size:11px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft);
+    margin-bottom:6px; margin-top:20px;
+  }
+  label:first-of-type{ margin-top:0; }
+  input[type="text"].field, textarea.field{
+    width:100%;
+    font-family:'Fraunces', serif; font-size:20px; font-weight:500;
+    color:var(--ink);
+    background:transparent;
+    border:none; border-bottom:1.5px solid var(--line);
+    padding:6px 2px 10px;
+    transition:border-color .15s ease;
+  }
+  textarea.field{
+    font-family:'Inter', sans-serif; font-size:15px; font-weight:400;
+    line-height:1.7; min-height:180px; resize:vertical;
+    border:1.5px solid var(--line); border-radius:2px; padding:14px;
+    background:repeating-linear-gradient(var(--paper) 0 30px, rgba(34,31,27,0.045) 30px 31px);
+  }
+  input[type="text"].field:focus, textarea.field:focus{
+    outline:none; border-color:var(--brass);
+  }
+  .rating-row{ display:flex; align-items:center; gap:14px; margin-top:10px; }
+  .rating-row .stars .star-btn{ font-size:28px; }
+  .rating-label-text{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); }
+
+  .detail-actions{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:32px; padding-top:20px; border-top:1px solid var(--line);
+    flex-wrap:wrap; gap:12px;
+  }
+
+    .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--navy); color:var(--paper);
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+    padding:12px 20px; border-radius:3px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+    z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  @media (max-width:520px){
+    .detail-card{ padding:24px 16px; }
+    .detail-card::before{ display:none; }
+  }
+</style>
 </head>
 <body>
 
-<div class="card">
-    <h2>บันทึกหลักฐานคำหยาบ</h2>
-    <input type="text" id="cussWord" placeholder="แฟนพูดคำว่าอะไร...">
-    <input type="file" id="imageInput" accept="image/*">
-    <button class="btn-add" onclick="saveRecord()">บันทึกหลักฐาน (จูบเพิ่ม!)</button>
-    <hr>
-    <h3>แต้มรวมตอนนี้: <span id="total">0</span> นาที</h3>
-    <div id="logContainer"></div>
+<div class="app">
+
+  <!-- ===== LIST VIEW ===== -->
+  <div id="listView">
+    <header class="top">
+      <div>
+        <p class="brand-eyebrow">Registry · No. 001 —</p>
+        <h1 class="brand">ทะเบียนบุคคล</h1>
+      </div>
+      <button class="btn btn-primary" id="addBtn" style="display:none;">+ เพิ่มชื่อใหม่</button>
+    </header>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="ค้นหาชื่อ...">
+      </div>
+      <span class="sort-tag" id="countTag">ทั้งหมด 0 รายชื่อ</span>
+    </div>
+
+    <div class="grid" id="grid"></div>
+    <div class="empty-state" id="emptyState" style="display:none;">
+      <span class="stamp-icon">— ยังไม่มีรายชื่อในทะเบียน —</span>
+      แตะหน้าจอต่อเนื่อง 10 ครั้ง เพื่อเพิ่มรายชื่อใหม่
+    </div>
+  </div>
+
+  <!-- ===== DETAIL VIEW ===== -->
+  <div id="detailView" class="hidden">
+    <div class="detail-card">
+      <div class="back-row">
+        <button class="btn" id="backBtn">← กลับหน้ารายชื่อ</button>
+      </div>
+
+      <div class="detail-topline">
+        <div>
+          <p class="detail-id" id="detailIdTag">No. 000</p>
+        </div>
+        <button class="btn btn-stamp" id="deleteBtn" style="display:none;">ลบรายการนี้</button>
+      </div>
+
+      <label for="nameInput">ชื่อ</label>
+      <input type="text" class="field" id="nameInput" placeholder="พิมพ์ชื่อที่นี่..." readonly>
+
+      <label>คะแนนความประทับใจ</label>
+      <div class="rating-row">
+        <div class="stars" id="detailStars"></div>
+        <span class="rating-label-text" id="detailRatingText">ยังไม่ได้ให้คะแนน</span>
+      </div>
+
+      <label for="historyInput">ประวัติ / รายละเอียด</label>
+      <textarea class="field" id="historyInput" placeholder="เขียนประวัติ ความเป็นมา หรือรายละเอียดของบุคคลนี้ที่นี่..." readonly></textarea>
+
+      <div class="detail-actions">
+        <span class="sort-tag" id="lastUpdated"></span>
+        <button class="btn btn-primary" id="saveBtn" style="display:none;">บันทึกข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
-    let records = JSON.parse(localStorage.getItem('myCussRecords')) || [];
+(function(){
+  const STORAGE_KEY = 'registry_people_v1';
+  let people = [];
+  let editingId = null;
 
-    function saveRecord() {
-        const word = document.getElementById('cussWord').value;
-        const fileInput = document.getElementById('imageInput');
-        
-        if (!word) { alert("ใส่คำหยาบก่อนเพื่อน!"); return; }
+  // ตัวแปรนับคลิกหน้าหลัก (สำหรับเพิ่มข้อมูลใหม่)
+  let listClickCount = 0;
+  let listClickTimer = null;
 
-        if (fileInput.files && fileInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                addRecord(word, e.target.result);
-            }
-            reader.readAsDataURL(fileInput.files[0]);
-        } else {
-            addRecord(word, null);
-        }
+  // ตัวแปรนับคลิกหน้าประวัติ (สำหรับแก้ไขข้อมูล)
+  let detailClickCount = 0;
+  let detailClickTimer = null;
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      people = raw ? JSON.parse(raw) : [];
+    }catch(e){ people = []; }
+  }
+  function save(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(people));
+  }
+  function uid(){
+    return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
+  }
+  function pad(n){ return String(n).padStart(3,'0'); }
+  function initials(name){
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if(parts.length === 0) return '?';
+    if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  function fmtDate(ts){
+    if(!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString('th-TH', {day:'2-digit', month:'short', year:'numeric'}) +
+      ' ' + d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function renderStars(container, rating, size, onClick){
+    container.innerHTML = '';
+    for(let i=1; i<=5; i++){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'star-btn' + (i <= rating ? ' filled' : '');
+      b.textContent = '★';
+      b.setAttribute('aria-label', i + ' ดาว');
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        if(onClick) onClick(i === rating ? 0 : i);
+      });
+      container.appendChild(b);
     }
+  }
 
-    function addRecord(word, imgData) {
-        const now = new Date();
-        const timeStr = now.toLocaleDateString('th-TH') + " " + now.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
-        records.push({ word, imgData, time: timeStr });
-        localStorage.setItem('myCussRecords', JSON.stringify(records));
-        location.reload();
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(()=> t.classList.remove('show'), 2000);
+  }
+
+  // ===== LIST VIEW =====
+  function renderList(){
+    const grid = document.getElementById('grid');
+    const empty = document.getElementById('emptyState');
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+
+    const filtered = people
+      .map((p, idx) => ({...p, _idx: idx}))
+      .filter(p => p.name.toLowerCase().includes(q))
+      .sort((a,b) => b.createdAt - a.createdAt);
+
+    document.getElementById('countTag').textContent = 'ทั้งหมด ' + people.length + ' รายชื่อ' + (q ? (' · พบ ' + filtered.length + ' รายการ') : '');
+
+    grid.innerHTML = '';
+    if(people.length === 0){
+      empty.style.display = 'block';
+      grid.style.display = 'none';
+      return;
     }
+    empty.style.display = 'none';
+    grid.style.display = 'grid';
 
-    // โหลดข้อมูล
-    const container = document.getElementById('logContainer');
-    document.getElementById('total').innerText = records.length;
-    records.slice().reverse().forEach(r => {
-        const div = document.createElement('div');
-        div.className = 'log-item';
-        div.innerHTML = `<strong>คำ: ${r.word}</strong><br><small>${r.time}</small>
-                         ${r.imgData ? `<br><img src="${r.imgData}" class="log-img">` : ''}`;
-        container.appendChild(div);
+    filtered.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.tabIndex = 0;
+
+      const tab = document.createElement('span');
+      tab.className = 'tab-no';
+      tab.textContent = 'No. ' + pad(p._idx + 1);
+      card.appendChild(tab);
+
+      const head = document.createElement('div');
+      head.className = 'card-head';
+      head.innerHTML = `
+        <div class="avatar">${initials(p.name || '?')}</div>
+        <div>
+          <div class="card-name">${escapeHtml(p.name || 'ไม่มีชื่อ')}</div>
+          <div class="card-meta">บันทึกเมื่อ ${fmtDate(p.createdAt)}</div>
+        </div>`;
+      card.appendChild(head);
+
+      const bio = document.createElement('div');
+      bio.className = 'card-bio-preview';
+      bio.textContent = p.history ? p.history : 'ยังไม่มีประวัติเพิ่มเติม';
+      card.appendChild(bio);
+
+      const starsWrap = document.createElement('div');
+      starsWrap.className = 'stars';
+      renderStars(starsWrap, p.rating || 0, 19, null);
+      card.appendChild(starsWrap);
+
+      card.addEventListener('click', () => openDetail(p.id));
+      card.addEventListener('keypress', (e) => { if(e.key === 'Enter') openDetail(p.id); });
+
+      grid.appendChild(card);
     });
-</script>
+    }
 
+    function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ===== DETAIL VIEW =====
+  function openDetail(id){
+    editingId = id;
+    const p = people.find(x => x.id === id);
+    const idx = people.findIndex(x => x.id === id);
+
+    document.getElementById('detailIdTag').textContent = 'No. ' + pad(idx + 1);
+    document.getElementById('nameInput').value = p ? p.name : '';
+    document.getElementById('nameInput').setAttribute('readonly', 'readonly');
+    document.getElementById('historyInput').value = p ? (p.history || '') : '';
+    document.getElementById('historyInput').setAttribute('readonly', 'readonly');
+    document.getElementById('deleteBtn').style.display = 'none';
+    document.getElementById('saveBtn').style.display = 'none';
+    document.getElementById('lastUpdated').textContent = p && p.updatedAt ? ('แก้ไขล่าสุด: ' + fmtDate(p.updatedAt)) : '';
+
+    let currentRating = p ? (p.rating || 0) : 0;
+    const starsEl = document.getElementById('detailStars');
+    const ratingText = document.getElementById('detailRatingText');
+    function updateRatingText(){
+      ratingText.textContent = currentRating > 0 ? (currentRating + ' / 5 ดาว') : 'ยังไม่ได้ให้คะแนน';
+    }
+    starsEl.dataset.rating = currentRating;
+    updateRatingText();
+
+    renderStars(starsEl, currentRating, 28, null);
+
+    switchView('detail');
+  }
+
+  function switchView(view){
+    document.getElementById('listView').classList.toggle('hidden', view !== 'list');
+    document.getElementById('detailView').classList.toggle('hidden', view !== 'detail');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function saveDetail(){
+    const name = document.getElementById('nameInput').value.trim();
+    if(!name){
+      showToast('กรุณาใส่ชื่อก่อนบันทึก');
+      document.getElementById('nameInput').focus();
+      return;
+    }
+    const history = document.getElementById('historyInput').value;
+    const rating = parseInt(document.getElementById('detailStars').dataset.rating || '0', 10);
+    const now = Date.now();
+
+    if(editingId){
+      const p = people.find(x => x.id === editingId);
+      if(p){
+        p.name = name;
+        p.history = history;
+        p.rating = rating;
+        p.updatedAt = now;
+      }
+    }else{
+      people.push({
+        id: uid(),
+        name: name,
+        history: history,
+        rating: rating,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+    save();
+    showToast('บันทึกข้อมูลเรียบร้อยแล้ว');
+    renderList();
+    switchView('list');
+  }
+
+  function deleteCurrent(){
+    if(!editingId) return;
+    if(!confirm('ลบรายชื่อนี้ออกจากทะเบียนใช่หรือไม่?')) return;
+    people = people.filter(x => x.id !== editingId);
+    save();
+    renderList();
+    switchView('list');
+    showToast('ลบรายการแล้ว');
+  }
+
+  // ===== ระบบคลิกซ่อนความลับ 10 ครั้งต่อเนื่อง =====
+
+  // 1. หน้าหลัก (กดพื้นที่ไหนก็ได้ในหน้าหลัก 10 ครั้งติดกัน -> เปิดฟอร์ม "เพิ่มข้อมูลใหม่")
+  document.getElementById('listView').addEventListener('click', function(e){
+    if(e.target.closest('.card') || e.target.closest('.search-wrap')) return;
+
+    listClickCount++;
+    clearTimeout(listClickTimer);
+    
+    listClickTimer = setTimeout(() => {
+      listClickCount = 0;
+    }, 1200); // ให้เวลาคลิกต่อเนื่องภายใน 1.2 วินาที
+
+    if(listClickCount >= 10){
+      listClickCount = 0;
+      openDetail(null); // เปิดหน้าฟอร์มแบบสร้างใหม่ทันที
+      document.getElementById('nameInput').removeAttribute('readonly');
+      document.getElementById('historyInput').removeAttribute('readonly');
+      document.getElementById('saveBtn').style.display = 'block';
+      showToast('🔓 ปลดล็อกโหมดเพิ่มชื่อใหม่');
+    }
+  });
+
+  // 2. หน้าประวัติบุคคล (กดพื้นที่ไหนก็ได้ในหน้าประวัติ 10 ครั้งติดกัน -> เปิดโหมด "แก้ไขข้อมูลปัจจุบัน")
+  document.getElementById('detailView').addEventListener('click', function(e){
+    if(e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea') || e.target.closest('label')) return;
+
+    detailClickCount++;
+    clearTimeout(detailClickTimer);
+
+    detailClickTimer = setTimeout(() => {
+      detailClickCount = 0;
+    }, 1200);
+
+    if(detailClickCount >= 10){
+      detailClickCount = 0;
+      
+      // ปลดล็อกฟิลด์และปุ่มให้สามารถแก้ไขหรือลบได้ทันที
+      document.getElementById('nameInput').removeAttribute('readonly');
+      document.getElementById('historyInput').removeAttribute('readonly');
+      document.getElementById('deleteBtn').style.display = 'block';
+      document.getElementById('saveBtn').style.display = 'block';
+
+      // เปิดใช้งานดาวให้กดเปลี่ยนคะแนนได้
+      const p = people.find(x => x.id === editingId);
+      let currentRating = p ? (p.rating || 0) : 0;
+      const starsEl = document.getElementById('detailStars');
+      const ratingText = document.getElementById('detailRatingText');
+      function updateRatingText(){
+        ratingText.textContent = currentRating > 0 ? (currentRating + ' / 5 ดาว') : 'ยังไม่ได้ให้คะแนน';
+      }
+      renderStars(starsEl, currentRating, 28, function(r){
+        currentRating = r;
+        starsEl.dataset.rating = r;
+        renderStars(starsEl, currentRating, 28, arguments.callee);
+        updateRatingText();
+      });
+
+      showToast('🔓 ปลดล็อกโหมดแก้ไขข้อมูล');
+    }
+  });
+
+  document.getElementById('addBtn').addEventListener('click', () => {
+    openDetail(null);
+    document.getElementById('nameInput').removeAttribute('readonly');
+    document.getElementById('historyInput').removeAttribute('readonly');
+    document.getElementById('saveBtn').style.display = 'block';
+  });
+
+  document.getElementById('backBtn').addEventListener('click', () => switchView('list'));
+  document.getElementById('saveBtn').addEventListener('click', saveDetail);
+  document.getElementById('deleteBtn').addEventListener('click', deleteCurrent);
+  document.getElementById('searchInput').addEventListener('input', renderList);
+
+  // ===== Init =====
+  load();
+  renderList();
+})();
+</script>
 </body>
 </html>
-
+    
